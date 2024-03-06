@@ -12,7 +12,11 @@
 #include <hidapi.h>
 
 // Curses (put last)
+#ifdef _WIN32
+#include <pdcurses.h>
+#else
 #include <ncurses.h>
+#endif
 
 enum
 {
@@ -278,7 +282,7 @@ int main(void)
     }
 
 exit:
-    endwin();
+    //endwin();
     hid_close(device);
     hid_free_enumeration(enumeration);
     hid_exit();
