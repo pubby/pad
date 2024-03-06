@@ -1,0 +1,6 @@
+# This is a udev file which lets unprivileged users configure the Pubby Pad.
+# Place this file in /etc/udev/rules.d/
+# Then, replug your Pubby Pad or run:
+# sudo udevadm control --reload-rules && sudo udevadm trigger
+
+KERNEL=="hidraw*", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="27d9", TAG+="uaccess"

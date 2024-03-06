@@ -75,7 +75,7 @@ int main(void)
     while(true)
     {
         if(board_button_read())
-            put_pixel(urgb_u32(0x10, 0x10, 0x10));
+            put_pixel(urgb_u32(0x10, 0x00, 0x00));
         else
             put_pixel(urgb_u32(0x0, 0x0, 0x0));
 
@@ -232,15 +232,11 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
     if(report_type != HID_REPORT_TYPE_FEATURE)
         return 0;
 
-    if(report_id == REPORT_ID_SENSORS && reqlen >= sizeof(sensors))
-    {
-        memcpy(buffer, &sensors, sizeof(sensors));
-        return sizeof(sensors);
-    }
-    else if(report_id == REPORT_ID_THRESHOLDS && reqlen >= sizeof(thresholds))
+    if(report_id == REPORT_ID_FEATURES && reqlen >= sizeof(sensors) + sizeof(thresholds))
     {
         memcpy(buffer, &thresholds, sizeof(thresholds));
-        return sizeof(thresholds);
+        memcpy(buffer+sizeof(thresholds), &sensors, sizeof(sensors));
+        return sizeof(sensors) + sizeof(thresholds);
     }
 
   return 0;
@@ -253,7 +249,7 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
     if(report_type != HID_REPORT_TYPE_FEATURE)
         return;
 
-    if(report_id == REPORT_ID_THRESHOLDS)
+    if(report_id == REPORT_ID_FEATURES)
     {
         if(bufsize >= sizeof(thresholds))
         {

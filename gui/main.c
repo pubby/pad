@@ -1,7 +1,7 @@
 // Copyright 2024, Patrick Bene
 
 // STD
-#include <errno.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -13,6 +13,7 @@
 
 // Curses (put last)
 #ifdef _WIN32
+#define PDC_WIDE
 #include <pdcurses.h>
 #else
 #include <ncurses.h>
@@ -21,8 +22,7 @@
 enum
 {
   REPORT_ID_BUTTONS = 1,
-  REPORT_ID_SENSORS,
-  REPORT_ID_THRESHOLDS,
+  REPORT_ID_FEATURES,
   REPORT_ID_COUNT
 };
 
@@ -48,27 +48,25 @@ void read_sensors(void)
 {
     if(!device)
         return;
-    io_buf[0] = REPORT_ID_SENSORS; // Report number
-    int const res = hid_get_feature_report(device, io_buf, sizeof(io_buf));
-    if(res >= 1)
-        memcpy(sensors, io_buf+1, res-1);
+    io_buf[0] = REPORT_ID_FEATURES; // Report number
+    if(hid_get_feature_report(device, io_buf, sizeof(io_buf)))
+        memcpy(sensors, io_buf+5, sizeof(sensors));
 }
 
 void read_thresholds(void)
 {
     if(!device)
         return;
-    io_buf[0] = REPORT_ID_THRESHOLDS; // Report number
-    int const res = hid_get_feature_report(device, io_buf, sizeof(io_buf));
-    if(res >= 1)
-        memcpy(thresholds, io_buf+1, res-1);
+    io_buf[0] = REPORT_ID_FEATURES; // Report number
+    if(hid_get_feature_report(device, io_buf, sizeof(io_buf)))
+        memcpy(thresholds, io_buf+1, sizeof(thresholds));
 }
 
 void write_thresholds(void)
 {
     if(!device)
         return;
-    io_buf[0] = REPORT_ID_THRESHOLDS; // Report number
+    io_buf[0] = REPORT_ID_FEATURES; // Report number
     memcpy(io_buf+1, thresholds, sizeof(thresholds));
     hid_send_feature_report(device, io_buf, sizeof(thresholds) + 1);
 }
@@ -83,7 +81,7 @@ void enumerate(void)
 void find_next_entry(void)
 {
     bool retried = false;
-    while(true)
+    while(entry)
     {
         if(!(entry = entry->next))
         {
@@ -92,7 +90,7 @@ void find_next_entry(void)
             enumerate();
             retried = true;
         }
-        else if(wcscmp(entry->manufacturer_string, L"http://pubby.games") == 0)
+        else if(entry->usage == 0xA0 && wcscmp(entry->manufacturer_string, L"http://pubby.games") == 0)
         {
             if(device)
                 hid_close(device);
@@ -104,22 +102,30 @@ void find_next_entry(void)
     }
 }
 
+void poll_mode(bool on)
+{
+    if(on)
+    {
+        raw();        // Disable line buffering
+        noecho();     // Don't display key presses
+        halfdelay(1); // Poll input every 1/10 a second
+        curs_set(false);
+    }
+    else
+    {
+        noraw();
+        echo();
+        nocbreak();
+        curs_set(true);
+    }
+}
+
 int main(void)
 {
-    // Init HID:
-    hid_init();
-    enumerate();
-    find_next_entry();
-    read_thresholds();
-    read_sensors();
 
     // Init ncurses:
     initscr();
-    raw(); // Disable line buffering
-    noecho();
-    keypad(stdscr, TRUE); // Enable more keypresses
-
-    halfdelay(1); // Poll input every 1/10 a second
+    keypad(stdscr, true); // Enable more keypresses
 
     // Colors
     start_color();
@@ -129,8 +135,21 @@ int main(void)
 
     clear();
 
+    // Init HID:
+    if(hid_init() != 0)
+    {
+        fwprintf(stderr, L"HID Error: %ls\n", hid_error(NULL));
+        return EXIT_FAILURE;
+    }
+
+    enumerate();
+    find_next_entry();
+    read_thresholds();
+    read_sensors();
+
     while(true)
     {
+        poll_mode(true);
         read_sensors();
 
         int line = 0;
@@ -165,7 +184,7 @@ int main(void)
         if(!device)
         {
             attron(COLOR_PAIR(CP_ERROR));
-            printw("Error: Unable to access USB device. Are you running as root?");
+            printw("Error: Unable to access USB device.\n");
             attroff(COLOR_PAIR(CP_ERROR));
         }
         clrtoeol();
@@ -179,66 +198,70 @@ int main(void)
         case 'Q':
             write_thresholds();
             goto exit;
+
         case 'c':
             thresholds[ui_line] = sensors[ui_line];
             break;
+
         case 'C':
             for(int i = 0; i < 4; ++i)
                 thresholds[i] = sensors[i];
             break;
+
         case KEY_DOWN:
             ++ui_line;
             ui_line &= 3;
             break;
+
         case KEY_UP:
             --ui_line;
             ui_line &= 3;
             break;
+
         case KEY_LEFT:
             thresholds[ui_line] -= 1;
             break;
+
         case KEY_RIGHT:
             thresholds[ui_line] += 1;
             break;
+
         case KEY_SLEFT:
             thresholds[ui_line] -= 8;
             break;
+
         case KEY_SRIGHT:
             thresholds[ui_line] += 8;
             break;
+
         case '\t':
         case KEY_STAB:
+            write_thresholds();
             find_next_entry();
+            read_thresholds();
             break;
+
         case KEY_ENTER:
         case '\n':
         case '\r':
-            noraw();
-            echo();
+            poll_mode(false);
             printw("New value: ");
             getnstr(io_buf, sizeof(io_buf));
             io_buf[sizeof(io_buf)-1] = '\0';
-
-            errno = 0;
-            long value = strtol(io_buf, NULL, 10);
-
-            if(errno == 0)
+            if(isdigit(io_buf[0]))
             {
+                long value = atoi(io_buf);
                 if(value < 0)
                     value = 0;
                 else if(value > 255)
                     value = 255;
                 thresholds[ui_line] = value;
             }
-
-            noecho();
-            raw();
             break;
 
         case 's':
         case 'S':
-            noraw();
-            echo();
+            poll_mode(false);
             printw("Save profile: ");
             getnstr(io_buf, sizeof(io_buf)-4);
             io_buf[sizeof(io_buf)-5] = '\0';
@@ -253,14 +276,11 @@ int main(void)
                     fclose(fp);
                 }
             }
-            noecho();
-            raw();
             break;
 
         case 'l':
         case 'L':
-            noraw();
-            echo();
+            poll_mode(false);
             printw("Load profile: ");
             getnstr(io_buf, sizeof(io_buf)-4);
             io_buf[sizeof(io_buf)-5] = '\0';
@@ -275,14 +295,15 @@ int main(void)
                     fclose(fp);
                 }
             }
-            noecho();
-            raw();
             break;
         }
     }
 
 exit:
-    //endwin();
+    poll_mode(false);
+#ifndef _WIN32
+    endwin(); // Not sure why this doesn't link on PDCURSES
+#endif
     hid_close(device);
     hid_free_enumeration(enumeration);
     hid_exit();

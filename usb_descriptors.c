@@ -46,7 +46,7 @@ tusb_desc_device_t const desc_device =
     .bLength            = sizeof(tusb_desc_device_t),
     .bDescriptorType    = TUSB_DESC_DEVICE,
     .bcdUSB             = USB_BCD,
-    .bDeviceClass       = 0x00,
+    .bDeviceClass       = 0x03,
     .bDeviceSubClass    = 0x00,
     .bDeviceProtocol    = 0x00,
     .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
@@ -94,22 +94,15 @@ uint8_t const desc_hid_report[] =
     HID_USAGE_PAGE_N   ( HID_USAGE_PAGE_VENDOR, 2               ),
     HID_USAGE          ( 0xA0                                   ),
     HID_COLLECTION     ( HID_COLLECTION_APPLICATION ),
-    HID_REPORT_ID(REPORT_ID_SENSORS)
+    HID_REPORT_ID(REPORT_ID_FEATURES)
     HID_USAGE_MIN      ( 1                                      ) ,
     HID_USAGE_MAX      ( 8                                      ) ,
     HID_LOGICAL_MIN    ( 0                                      ) ,
     HID_LOGICAL_MAX    ( 0xFF                                   ) ,
     HID_REPORT_SIZE    ( 8                                      ) ,
-    HID_REPORT_COUNT   ( 4                                      ) ,
+    HID_REPORT_COUNT   ( 8                                      ) ,
     HID_FEATURE        (HID_DATA | HID_VARIABLE | HID_ABSOLUTE | HID_WRAP_NO | HID_LINEAR |HID_PREFERRED_STATE | HID_NO_NULL_POSITION | HID_NON_VOLATILE),
   HID_COLLECTION_END,
-
-    // Thresholds
-    HID_USAGE          ( 0xA1                                   ),
-    HID_COLLECTION     ( HID_COLLECTION_APPLICATION ),
-    HID_REPORT_ID(REPORT_ID_THRESHOLDS)
-    HID_FEATURE        (HID_DATA | HID_VARIABLE | HID_ABSOLUTE | HID_WRAP_NO | HID_LINEAR |HID_PREFERRED_STATE | HID_NO_NULL_POSITION | HID_NON_VOLATILE),
-  HID_COLLECTION_END 
 };
 
 // Invoked when received GET HID REPORT DESCRIPTOR
