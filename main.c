@@ -74,7 +74,7 @@ int main(void)
 
     while(true)
     {
-        if(board_millis() - initial_millis < 1000)
+        if(board_button_read())
             put_pixel(urgb_u32(0x10, 0x10, 0x10));
         else
             put_pixel(urgb_u32(0x0, 0x0, 0x0));
@@ -121,14 +121,7 @@ void save_thresholds(void)
 
     uint32_t const ints = save_and_disable_interrupts();
     if(offset == 0)
-    {
-        put_pixel(urgb_u32(0, 0x10, 0));  // green
         flash_range_erase(FLASH_OFFSET, FLASH_SECTOR_SIZE);
-    }
-    else
-    {
-        put_pixel(urgb_u32(0,0,  0x10));  // blue
-    }
     flash_range_program(FLASH_OFFSET + page_offset, page, FLASH_PAGE_SIZE);
     restore_interrupts(ints);
 }
@@ -165,7 +158,7 @@ void poll_sensors(void)
 {
     adc_select_input(0);
 
-    uint16_t new_reading[4];
+    force_t new_reading[4];
     for(int i = 0; i < NUM_BUTTONS; ++i)
         new_reading[i] = ~(adc_read() >> 4);
 
@@ -215,10 +208,7 @@ void hid_task(void)
         return;
     prev_millis = millis;
 
-    if(board_button_read())
-        sensors[0] += 1;
-
-    uint8_t const buttons = read_buttons(); //board_button_read();
+    uint8_t const buttons = read_buttons();
 
     if(prev_buttons == buttons)
         return;
