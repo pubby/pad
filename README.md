@@ -1,3 +1,3 @@
 # Pubby Pad
 
-This is firmware for the Pubby Pad.
+rp2040 firmware for the Pubby Pad.
